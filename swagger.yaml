@@ -1,0 +1,199 @@
+swagger: "2.0"
+info:
+  description: "\n\n"
+  version: "0.1.0_inProgress"
+  title: "CutomLogs"
+  x-logo:
+    url: "/redoc/logo.png"
+    backgroundColor: "#FFFFFF"
+produces:
+  - "application/json;charset=utf-8"
+host: "localhost:8090"
+basePath: "/utility/log/v1"
+schemes:
+  - http
+paths:
+  /checklife:
+    get:
+      tags:
+        - System
+      produces:
+        - application/json;charset=utf-8
+      summary: get response
+      description: ''
+      deprecated: false
+      responses:
+        '200':
+          description: Ok
+          schema:
+            $ref: '#/definitions/System'
+        '401':
+          description: |+
+            Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '403':
+          description: |+
+            Forbidden
+          schema:
+            $ref: '#/definitions/Error'
+        '405':
+          description: |+
+            Method Not Allowed
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: |+
+            Internal Server Error
+          schema:
+            $ref: '#/definitions/Error'
+  /preserve:
+    get:
+      tags:
+        - "Log Preserve"
+      produces:
+        - "application/json;charset=utf-8"
+      summary: "get response"
+      description: ""
+      deprecated: false
+      parameters:
+        - name: "fromDate"
+          required: true
+          in: "query"
+          description: "Report will be generated for transactions done from this date."
+          type: "string"
+        - name: "toDate"
+          required: false
+          in: "query"
+          description: "Report will be generated for transactions done before this date.Default\
+          \ value : current date"
+          type: "string"
+      responses:
+        200:
+          description: "Ok"
+          headers:
+            X-Expected-Records-Count:
+              type: integer
+              description: No of actual records against the filter applied. Since it is NRT API so a little discrepancy could be expected
+            X-Fetched-Records-Count:
+              type: integer
+              description: No of records returned against the API request
+          schema:
+            $ref: "#/definitions/Response"
+        401:
+          description: "Unauthorized\n\n"
+          schema:
+            $ref: "#/definitions/Error"
+        403:
+          description: "Forbidden\n\n"
+          schema:
+            $ref: "#/definitions/Error"
+        405:
+          description: "Method Not Allowed\n\n"
+          schema:
+            $ref: "#/definitions/Error"
+        500:
+          description: "Internal Server Error\n\n"
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - ApiKeyAuth: []
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    type: apiKey
+    name: apikey
+definitions:
+  System:
+    description: ""
+    required:
+      - "version"
+      - "buildVersion"
+      - "status"
+      - "uptime"
+    type: object
+    properties:
+      version:
+        description: ""
+        type: "string"
+      buildVersion:
+        description: ""
+        type: "string"
+      status:
+        description: ""
+        type: "string"
+      uptime:
+        description: ""
+        type: "string"
+  Response:
+    description: ""
+    type: array
+    items:
+      required:
+        - "_id"
+        - "someOtherId"
+        - "lastWriteDate"
+        - "Header"
+        - "Movments"
+      type: object
+      properties:
+        _id:
+          description: ""
+          type: "string"
+        someOtherId:
+          description: ""
+          type: "string"
+        lastWriteDate:
+          description: ""
+          type: "string"
+          format: "date-time"
+        Header:
+          $ref: "#/definitions/header"
+  Error:
+    description: ""
+    type: "object"
+    properties: {}
+  header:
+    description: ""
+    type: "object"
+    required:
+      - "creationDate"
+      - "isIdenticalTransaction"
+      - "amount"
+      - "sourceServiceType"
+      - "transactionId"
+      - "transactionStatus"
+      - "errorCode"
+      - "modifiedBy"
+      - "modifiedOn"
+    properties:
+      creationDate:
+        description: ""
+        type: "string"
+        format: "date-time"
+      isIdenticalTransaction:
+        description: ""
+        type: "string"
+      amount:
+        description: ""
+        type: "number"
+        format: "float64"
+      transactionId:
+        description: ""
+        type: "string"
+      sourceServiceType:
+        description: ""
+        type: "string"
+      transactionStatus:
+        description: ""
+        type: "string"
+      errorCode:
+        description: ""
+        type: "string"
+      modifiedBy:
+        description: ""
+        type: "string"
+      modifiedOn:
+        description: ""
+        type: "string"
+        format: "date-time"
