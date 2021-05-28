@@ -225,11 +225,12 @@ func (log *Logger) Fatalf(msg string, err error) {
 }
 
 //InitLogger : function to populate and initialize the Logger structure
-func InitLogger(country string, debugParam bool, version string) Logger {
+// func InitLogger(country string, debugParam bool, version string) Logger {
+func InitLogger(country string) Logger {
 	Log = Logger{
-		Country:    country,
-		ShowDebug:  debugParam,
-		AppVersion: version,
+		Country: country,
+		// ShowDebug:  debugParam,
+		// AppVersion: version,
 	}
 	return Log
 }

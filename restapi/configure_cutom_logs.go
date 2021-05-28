@@ -4,16 +4,20 @@ package restapi
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 
+	"customlogs/models"
 	"customlogs/restapi/operations"
 	"customlogs/restapi/operations/log_preserve"
 	"customlogs/restapi/operations/system"
 	"customlogs/services"
+	"customlogs/utility"
 )
 
 //go:generate swagger generate server --target ../../customlogs --name CutomLogs --spec ../swagger.yaml --principal interface{}
@@ -45,21 +49,31 @@ func configureAPI(api *operations.CutomLogsAPI) http.Handler {
 		return services.IsAuthentic(token)
 	}
 
-	// Set your custom authorizer if needed. Default one is security.Authorized()
-	// Expected interface runtime.Authorizer
-	//
-	// Example:
-	// api.APIAuthorizer = security.Authorized()
-
 	if api.SystemGetChecklifeHandler == nil {
 		api.SystemGetChecklifeHandler = system.GetChecklifeHandlerFunc(func(params system.GetChecklifeParams) middleware.Responder {
 			return middleware.NotImplemented("operation system.GetChecklife has not yet been implemented")
 		})
+	} else {
+		api.SystemGetChecklifeHandler = system.GetChecklifeHandlerFunc(
+			func(params system.GetChecklifeParams) middleware.Responder {
+				status := "Up"
+				uptime := fmt.Sprintf("%vm", time.Since(utility.Configuration.StartTime).Minutes())
+				response := models.System{
+					// BuildVersion: &utility.Configuration.BuildVersion,
+					Status: &status,
+					Uptime: &uptime,
+					// Version:      &utility.Configuration.Version,
+				}
+
+				return system.NewGetChecklifeOK().WithPayload(&response)
+			})
 	}
 	if api.LogPreserveGetPreserveHandler == nil {
 		api.LogPreserveGetPreserveHandler = log_preserve.GetPreserveHandlerFunc(func(params log_preserve.GetPreserveParams, principal interface{}) middleware.Responder {
 			return middleware.NotImplemented("operation log_preserve.GetPreserve has not yet been implemented")
 		})
+	} else {
+
 	}
 
 	api.PreServerShutdown = func() {}
@@ -79,6 +93,8 @@ func configureTLS(tlsConfig *tls.Config) {
 // This function can be called multiple times, depending on the number of serving schemes.
 // scheme value will be set accordingly: "http", "https" or "unix".
 func configureServer(s *http.Server, scheme, addr string) {
+	config := utility.Configuration
+	utility.InitLogger(config.Country)
 }
 
 // The middleware configuration is for the handler executors. These do not apply to the swagger.json document.
@@ -90,5 +106,18 @@ func setupMiddlewares(handler http.Handler) http.Handler {
 // The middleware configuration happens before anything, this middleware also applies to serving the swagger.json document.
 // So this is a good place to plug in a panic handling middleware, logging and metrics.
 func setupGlobalMiddleware(handler http.Handler) http.Handler {
-	return handler
+	return customMiddleware(handler)
+}
+
+func customMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		enableCors(&w)
+
+		// utility.Log.Infof("Received request: [%s] %v", r.Method, r.URL)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
 }
