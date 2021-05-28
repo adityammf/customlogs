@@ -1,76 +1,58 @@
 package services
 
 import (
-	"encoding/xml"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
+	"bufio"
+	"fmt"
+	"log"
+	"os"
 )
 
-type (
-	item struct {
-		XMLName     xml.Name `xml:"item"`
-		Title       string   `xml:"title"`
-		Description string   `xml:"description"`
-		Link        string   `xml:"link"`
+var concurrency = 100
+
+func main() {
+	// This channel has no buffer, so it only accepts input when something is ready
+	// to take it out. This keeps the reading from getting ahead of the writers.
+	workQueue := make(chan string)
+
+	// We need to know when everyone is done so we can exit.
+	complete := make(chan bool)
+
+	// Read the lines into the work queue.
+	go func() {
+		file, err := os.Open("customlogs/assets/access_log")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Close when the functin returns
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		scanner.Split(bufio.ScanWords)
+		for scanner.Scan() {
+			workQueue <- scanner.Text()
+		}
+
+		// Close the channel so everyone reading from it knows we're done.
+		close(workQueue)
+	}()
+
+	// Now read them all off, concurrently.
+	for i := 0; i < concurrency; i++ {
+		go startWorking(workQueue, complete)
 	}
 
-	channel struct {
-		XMLName     xml.Name `xml:"channel"`
-		Title       string   `xml:"title"`
-		Description string   `xml:"description"`
-		Link        string   `xml:"link"`
-		PubDate     string   `xml:"pubDate"`
-		Items       []item   `xml:"item"`
+	// Wait for everyone to finish.
+	for i := 0; i < concurrency; i++ {
+		<-complete
 	}
-
-	document struct {
-		XMLName xml.Name `xml:"rss"`
-		Channel channel  `xml:"channel"`
-		URI     string
-	}
-)
-
-func findConcurrent(goroutines int, topic string, docs []string) int {
-	var found int64
-
-	ch := make(chan string, len(docs))
-	for _, doc := range docs {
-		ch <- doc
-	}
-	close(ch)
-	var wg sync.WaitGroup
-	wg.Add(goroutines)
-
-	for g := 0; g < goroutines; g++ {
-		go func() {
-			var lFound int64
-			for doc := range ch {
-				items, err := read(doc)
-				if err != nil {
-					continue
-				}
-				for _, item := range items {
-					if strings.Contains(item.Description, topic) {
-						lFound++
-					}
-				}
-			}
-			atomic.AddInt64(&found, lFound)
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-
-	return int(found)
 }
 
-func read(doc string) ([]item, error) {
-	time.Sleep(time.Millisecond) // Simulate blocking disk read.
-	var d document
-	if err := xml.Unmarshal([]byte(file), &d); err != nil {
-		return nil, err
+func startWorking(queue chan string, complete chan bool) {
+	for line := range queue {
+		fmt.Println(line)
 	}
-	return d.Channel.Items, nil
+
+	// Let the main process know we're done.
+	complete <- true
 }
